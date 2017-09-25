@@ -1,4 +1,3 @@
-import json
 from typing import List
 from hashlib import sha256
 
@@ -7,6 +6,7 @@ from copy import deepcopy
 import base58
 import base64
 
+from common.serializers.json_serializer import JsonSerializer
 from common.serializers.serialization import state_roots_serializer
 from plenum.common.exceptions import InvalidClientRequest, \
     UnauthorizedClientRequest, UnknownIdentifier
@@ -39,6 +39,8 @@ class DomainReqHandler(PHandler):
         super().__init__(ledger, state, requestProcessor, bls_store)
         self.idrCache = idrCache  # type: IdrCache
         self.attributeStore = attributeStore
+
+        self._attr_raw_serializer = JsonSerializer()
 
     def onBatchCreated(self, stateRoot):
         self.idrCache.currentBatchCreated(stateRoot)
@@ -343,9 +345,11 @@ class DomainReqHandler(PHandler):
         def parse(txn):
             raw = txn.get(RAW)
             if raw:
-                data = json.loads(raw)
+                data = self._attr_raw_serializer.deserialize(raw)
+                formatted_raw = self._attr_raw_serializer.serialize(data,
+                                                                    toBytes=False)
                 key, _ = data.popitem()
-                return key, raw
+                return key, formatted_raw
             enc = txn.get(ENC)
             if enc:
                 return self._hashOf(enc), enc
